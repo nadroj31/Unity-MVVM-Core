@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Force GitHub Linguist to detect .cs files as C#
+*.cs linguist-language=C#
+*.cs linguist-detectable
+# Update 2026-01-21
