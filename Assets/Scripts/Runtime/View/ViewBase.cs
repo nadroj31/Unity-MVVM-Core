@@ -3,11 +3,11 @@ using UnityEngine;
 /// <summary>
 /// Base View class for MVVM; manages ViewModel binding lifecycle.
 /// </summary>
-public abstract class ViewBase<T> : MonoBehaviour, IView<T> where T : ModelBase
+public abstract class ViewBase<T> : MonoBehaviour, IView<T> where T : ViewModelBase
 {
     private bool _isInitialized = false;
     protected readonly PropertyBinder<T> Binder = new();
-    public readonly BindableProperty<T> ViewmodelProperty = new();
+    protected readonly BindableProperty<T> ViewmodelProperty = new();
 
     // The bound ViewModel.
     public T BindingContext
@@ -31,16 +31,16 @@ public abstract class ViewBase<T> : MonoBehaviour, IView<T> where T : ModelBase
     }
 
     // Default binding context change handling: unbind old, bind new.
-    public virtual void OnBindingContextChange(T oldValue, T newValue)
+    protected virtual void OnBindingContextChange(T oldValue, T newValue)
     {
         if (oldValue != null) Binder.Unbind(oldValue);
         if (newValue != null) Binder.Bind(newValue);
     }
 
-    // Cleanup on destroy.
+    // Cleanup on destroy: unbind first, then unsubscribe.
     protected virtual void OnDestroy()
     {
-        ViewmodelProperty.ValueChanged -= OnBindingContextChange;
         BindingContext = null;
+        ViewmodelProperty.ValueChanged -= OnBindingContextChange;
     }
 }

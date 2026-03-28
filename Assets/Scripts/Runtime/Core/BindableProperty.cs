@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Generic bindable property with thread-safe access and change notification.
@@ -34,7 +35,7 @@ public class BindableProperty<T>
             bool changed = false;
             lock (_lock)
             {
-                if (!Equals(_value, value))
+                if (!EqualityComparer<T>.Default.Equals(_value, value))
                 {
                     oldValue = _value;
                     _value = value;

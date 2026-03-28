@@ -5,7 +5,7 @@ using System.Reflection;
 /// <summary>
 /// Binds/unbinds ViewModel BindableProperty events to external handlers.
 /// </summary>
-public class PropertyBinder<T> where T : ModelBase
+public class PropertyBinder<T> where T : ViewModelBase
 {
     private delegate void BindHandler(T viewmodel);
     private delegate void UnbindHandler(T viewmodel);
@@ -19,7 +19,7 @@ public class PropertyBinder<T> where T : ModelBase
     public void Add<TProperty>(string name, BindableProperty<TProperty>.ValueChangedHandler valueChangedHandler)
     {
         var fieldInfo = typeof(T).GetField(name, BindingFlags.Instance | BindingFlags.Public)
-            ?? throw new Exception(string.Format("Cannot find bindable property field '{0},{1}'", typeof(T).Name, name));
+            ?? throw new Exception(string.Format("Cannot find bindable property field '{0}.{1}'", typeof(T).Name, name));
 
         _binders.Add(viewmodel =>
         {
@@ -39,7 +39,7 @@ public class PropertyBinder<T> where T : ModelBase
     {
         var value = fieldInfo.GetValue(viewmodel);
         if (value is BindableProperty<TProperty> property) return property;
-        throw new Exception(string.Format("Invalid bindable property field type '{0},{1}'", typeof(T).Name, name));
+        throw new Exception(string.Format("Invalid bindable property field type '{0}.{1}'", typeof(T).Name, name));
     }
 
     // Apply all registered bindings.

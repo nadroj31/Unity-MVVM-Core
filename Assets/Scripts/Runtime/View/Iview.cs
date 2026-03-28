@@ -1,8 +1,7 @@
 /// <summary>
 /// Simple MVVM view interface.
 /// </summary>
-public interface IView<T> where T : ModelBase
+public interface IView<T> where T : ViewModelBase
 {
     T BindingContext { get; set; }
-    void OnBindingContextChange(T oldValue, T newValue);
 }
