@@ -2,27 +2,31 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// Generic bindable property with thread-safe access and change notification.
+/// A generic property wrapper that notifies subscribers when its value changes.
+/// Thread-safe: the value is guarded by a lock; the event is invoked outside the lock.
 /// </summary>
-/// <typeparam name="T">Value type.</typeparam>
+/// <typeparam name="T">The type of the wrapped value.</typeparam>
 public class BindableProperty<T>
 {
-    // Delegate invoked when value changes.
+    /// <summary>Invoked when <see cref="Value"/> changes, providing the old and new values.</summary>
     public delegate void ValueChangedHandler(T oldValue, T newValue);
 
-    // Raised when Value changes.
+    /// <summary>Raised after <see cref="Value"/> has been updated to a different value.</summary>
     public event ValueChangedHandler ValueChanged;
 
     private T _value;
     private readonly object _lock = new();
 
-    // Constructor: optional initial value.
+    /// <param name="initialValue">The initial value; defaults to <c>default(T)</c>.</param>
     public BindableProperty(T initialValue = default)
     {
         _value = initialValue;
     }
 
-    // Thread-safe value property. Invokes ValueChanged outside the lock.
+    /// <summary>
+    /// Gets or sets the value. The setter fires <see cref="ValueChanged"/> only when the
+    /// new value differs from the current one, and always outside the lock to avoid deadlocks.
+    /// </summary>
     public T Value
     {
         get
@@ -54,6 +58,7 @@ public class BindableProperty<T>
         }
     }
 
+    /// <inheritdoc/>
     public override string ToString()
     {
         lock (_lock) { return _value != null ? _value.ToString() : "null"; }
