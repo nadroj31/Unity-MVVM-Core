@@ -73,3 +73,23 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# Visual Studio solution files
+*.slnx
+
+# Visual Studio config
+.vsconfig
+
+# Unity URP template defaults
+Assets/DefaultVolumeProfile.asset
+Assets/DefaultVolumeProfile.asset.meta
+Assets/UniversalRenderPipelineGlobalSettings.asset
+Assets/UniversalRenderPipelineGlobalSettings.asset.meta
+
+# Unity template scenes
+Assets/Scenes.meta
+Assets/Scenes/
+
+# Empty sample folder metas
+Assets/Scripts/Samples.meta
+Assets/Scripts/Samples/
