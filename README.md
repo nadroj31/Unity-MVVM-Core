@@ -1,8 +1,11 @@
 # Unity MVVM Core
 
 A lightweight MVVM (Model–View–ViewModel) infrastructure designed specifically for Unity projects.
+The focus is on explicit data flow, clear responsibilities, and safe lifecycle management — not on framework magic.
 
-This repository provides a minimal, dependency-free MVVM core focused on explicit data flow, clear responsibilities, and safe lifecycle management within Unity.
+> **Note:** This repository is the standalone MVVM core extracted from [Unity Match-3 Puzzle — Architecture Showcase](https://github.com/nadroj31/Unity-Match-Puzzle-Showcase). It is designed to be dropped into any Unity project as-is.
+
+---
 
 ## Design Goals
 
@@ -13,27 +16,45 @@ This repository provides a minimal, dependency-free MVVM core focused on explici
 - Safe event subscription and unsubscription
 - Suitable for mobile and PC Unity projects
 
-This implementation intentionally avoids over-engineering and favors readability and control.
+---
 
 ## Architecture Overview
 
-This MVVM implementation follows three core principles:
+```
+┌─────────────────────────────────────────────────────┐
+│                   View Layer                         │
+│  (MonoBehaviours — inherit from ViewBase<T>)         │
+└────────────────────┬────────────────────────────────┘
+                     │ binds to
+┌────────────────────▼────────────────────────────────┐
+│                ViewModel Layer                       │
+│  (plain C# — inherit from ViewModelBase)             │
+└────────────────────┬────────────────────────────────┘
+                     │ exposes state via
+┌────────────────────▼────────────────────────────────┐
+│              BindableProperty<T>                     │
+│  (observable value container — no Unity dependency)  │
+└─────────────────────────────────────────────────────┘
+```
 
-1. ViewModels are pure C# objects without Unity dependencies
-2. Views are responsible only for presentation and user interaction
-3. Data flow is explicit and unidirectional from ViewModel to View
+Data flow is **unidirectional**: ViewModel pushes state → View reacts. Views never write back to ViewModels directly.
+
+---
 
 ## Core Components
 
-### ViewModel
+| Class | Responsibility |
+|---|---|
+| `ViewModelBase` | Marker base class; all ViewModels inherit from it |
+| `BindableProperty<T>` | Observable value wrapper — fires `ValueChanged` only on actual change, using `EqualityComparer<T>` |
+| `ViewBase<T>` | Abstract `MonoBehaviour` base for all Views; manages binding lifecycle (initialize → bind → unbind → destroy) |
+| `PropertyBinder<T>` | Resolves `BindableProperty` fields by name via reflection; caches `FieldInfo` for subsequent bind/unbind calls |
 
-All ViewModels inherit from `ViewModelBase`:
+---
 
-```csharp
-public abstract class ViewModelBase { }
-```
+## Usage
 
-ViewModels expose state as `public readonly` `BindableProperty<T>` fields:
+### 1. Define a ViewModel
 
 ```csharp
 public class PlayerViewModel : ViewModelBase
@@ -46,58 +67,7 @@ public class PlayerViewModel : ViewModelBase
 > `PropertyBinder<T>` resolves bindings via reflection on **public fields**.
 > Properties (`{ get; }`) are not supported.
 
-
-### `BindableProperty<T>`
-
-A thread-safe observable value container.
-
-Key characteristics:
-
-- Fires `ValueChanged` only when the new value differs from the current one
-- Thread-safe get and set; event is invoked outside the lock to prevent deadlocks
-- Uses `EqualityComparer<T>.Default` — no boxing for value types
-- No Unity dependency
-
-Example usage inside a ViewModel:
-
-```csharp
-public readonly BindableProperty<int> Health = new(100);
-```
-
-
-### `IView<T>`
-
-The View contract. Requires only a settable `BindingContext`:
-
-```csharp
-public interface IView<T> where T : ViewModelBase
-{
-    T BindingContext { get; set; }
-}
-```
-
-
-### View
-
-Views are Unity `MonoBehaviour` components that inherit from `ViewBase<T>`, which implements `IView<T>`:
-
-```csharp
-public abstract class ViewBase<T> : MonoBehaviour, IView<T>
-    where T : ViewModelBase
-{
-    // ...
-}
-```
-
-Responsibilities:
-
-- Hold the ViewModel via `BindingContext`
-- Manage binding and unbinding lifecycle
-- Forward property changes to presentation logic
-
-The view lifecycle is explicitly controlled and safe against memory leaks.
-
-Override `OnInitialize` to register bindings, then override `OnBindingContextChange` for any custom swap logic:
+### 2. Define a View
 
 ```csharp
 public class PlayerView : ViewBase<PlayerViewModel>
@@ -115,57 +85,58 @@ public class PlayerView : ViewBase<PlayerViewModel>
 }
 ```
 
-
-### `PropertyBinder<T>`
-
-`PropertyBinder<T>` connects ViewModel fields to View handlers.
-
-Responsibilities:
-
-- Locate `BindableProperty<T>` fields on the ViewModel via reflection
-- Subscribe all registered handlers when `Bind` is called
-- Unsubscribe all registered handlers when `Unbind` is called
-- Centralize binding logic to avoid scattered event handling
+### 3. Assign the ViewModel
 
 ```csharp
-Binder.Add<int>(nameof(PlayerViewModel.Health), OnHealthChanged);
+playerView.BindingContext = new PlayerViewModel();
 ```
 
-`Add` resolves the field once by name and caches the `FieldInfo`. Subsequent `Bind`/`Unbind` calls reuse that cache.
+Assigning `BindingContext` triggers `OnInitialize` on the first call, then binds all registered handlers automatically.
 
+---
 
-## Typical Usage Flow
+## Lifecycle
 
 1. A View is instantiated by Unity
-2. `BindingContext` is assigned, triggering `OnInitialize` on the first call
-3. The View subscribes to ViewModel property changes via `Binder`
+2. `BindingContext` is assigned — `OnInitialize` runs once, registering all bindings via `Binder`
+3. `Binder.Bind` subscribes all handlers to the ViewModel's `BindableProperty` fields
 4. Property updates propagate through `BindableProperty.ValueChanged`
-5. When the ViewModel is swapped, the old bindings are released and new ones applied
-6. On `OnDestroy`, `BindingContext` is set to `null` first (releasing all bindings), then the internal event subscription is removed
+5. When the ViewModel is swapped, old bindings are released and new ones applied
+6. On `OnDestroy`, `BindingContext` is set to `null` first (releasing all bindings), then the internal subscription is removed
 
 This ensures:
-
 - No dangling event subscriptions
 - Clear ownership of lifecycle
 
+---
+
+## BindableProperty Details
+
+- Fires `ValueChanged` only when the new value **differs** from the current one
+- Thread-safe get and set; event is invoked outside the lock to prevent deadlocks
+- Uses `EqualityComparer<T>.Default` — no boxing for value types
+- No Unity dependency
+
+---
 
 ## Folder Structure
 
-```text
+```
 Runtime/
-├─ Core        // BindableProperty<T> and ViewModelBase
-├─ Binding     // PropertyBinder<T>
-└─ View        // IView<T> and ViewBase<T>
+├── Core/       # BindableProperty<T> and ViewModelBase
+├── Binding/    # PropertyBinder<T>
+└── View/       # IView<T> and ViewBase<T>
 ```
 
 Samples are intentionally separated to keep the runtime clean.
 
+---
 
 ## Why Not UniRx / Reactive Frameworks?
 
 This project is designed for teams that:
 
-- Prefer explicit data flow
+- Prefer explicit, readable data flow
 - Want predictable performance
 - Avoid over-engineering for simple UI or gameplay states
 
@@ -175,6 +146,9 @@ It is especially suitable for:
 - Game state presentation
 - Tooling and in-game editors
 
+Keeping the framework small (~150 lines total) means you can read and understand the entire binding system in minutes. No hidden magic.
+
+---
 
 ## License
 
